@@ -1,0 +1,55 @@
+---
+title: Installation
+description: Build and run extreme3dpro_driver
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Installation
+
+## Build
+
+```bash
+cd ~/ros2_ws/src
+cp -r /path/to/extreme3dpro_driver .
+cd ~/ros2_ws
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --packages-select extreme3dpro_driver
+source install/setup.bash
+```
+
+## Permissions
+
+```bash
+sudo usermod -aG input $USER
+# log out and back in
+```
+
+<Callout type="warning">
+  Group change requires **re-login** to take effect.
+</Callout>
+
+## Run
+
+<Tabs items={['Launch', 'Direct']}>
+  <Tab value="Launch">
+    ```bash
+    ros2 launch extreme3dpro_driver extreme3dpro.launch.py
+    ```
+  </Tab>
+  <Tab value="Direct">
+    ```bash
+    ros2 run extreme3dpro_driver extreme3dpro_node \
+      --ros-args --params-file config/extreme3dpro.yaml
+    ```
+  </Tab>
+</Tabs>
+
+## Verify
+
+```bash
+ros2 topic echo /joy        # all axes & buttons
+ros2 topic echo /cmd_vel    # hold trigger first
+ros2 topic hz /joy           # check rate
+```

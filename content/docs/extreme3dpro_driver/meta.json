@@ -1,0 +1,11 @@
+{
+  "title": "extreme3dpro_driver",
+  "pages": [
+    "index",
+    "installation",
+    "interface",
+    "axis-button-map",
+    "parameters",
+    "architecture"
+  ]
+}

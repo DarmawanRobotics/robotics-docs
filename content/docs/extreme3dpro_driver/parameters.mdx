@@ -1,0 +1,122 @@
+---
+title: Parameters
+description: All configurable ROS 2 parameters
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Parameters
+
+Supply via YAML or `--ros-args -p key:=value`.
+
+## Device
+
+<TypeTable
+  type={{
+    device: {
+      description: 'Joystick device path.',
+      type: 'string',
+      default: '/dev/input/js0',
+    },
+    publish_rate: {
+      description: 'Publish frequency (Hz).',
+      type: 'double',
+      default: '50.0',
+    },
+    deadzone: {
+      description: 'Axis dead-zone (0.0–1.0). Rescaled so output still reaches ±1.0.',
+      type: 'double',
+      default: '0.05',
+    },
+    autorepeat: {
+      description: 'Keep publishing even without new events.',
+      type: 'bool',
+      default: 'true',
+    },
+  }}
+/>
+
+## Twist
+
+<TypeTable
+  type={{
+    publish_twist: {
+      description: 'Publish Twist on /cmd_vel.',
+      type: 'bool',
+      default: 'true',
+    },
+    linear_scale: {
+      description: 'Max m/s at full deflection.',
+      type: 'double',
+      default: '1.0',
+    },
+    angular_scale: {
+      description: 'Max rad/s at full yaw.',
+      type: 'double',
+      default: '1.0',
+    },
+  }}
+/>
+
+## Axis Mapping
+
+<TypeTable
+  type={{
+    axis_x: {
+      description: 'Roll → linear.y (strafe).',
+      type: 'int',
+      default: '0',
+    },
+    axis_y: {
+      description: 'Pitch → linear.x (fwd/back).',
+      type: 'int',
+      default: '1',
+    },
+    axis_yaw: {
+      description: 'Twist → angular.z (yaw).',
+      type: 'int',
+      default: '2',
+    },
+    axis_throttle: {
+      description: 'Slider → linear.z (up/down).',
+      type: 'int',
+      default: '3',
+    },
+  }}
+/>
+
+## Deadman
+
+<TypeTable
+  type={{
+    deadman_btn: {
+      description: 'Button that must be held for /cmd_vel output. -1 to disable.',
+      type: 'int',
+      default: '0',
+    },
+  }}
+/>
+
+<Callout type="warning">
+  `deadman_btn: -1` means the robot moves immediately on deflection. Only use in simulation.
+</Callout>
+
+## Example Config
+
+```yaml
+extreme3dpro_driver:
+  ros__parameters:
+    device: "/dev/input/js0"
+    publish_rate: 100.0
+    deadzone: 0.02
+    autorepeat: true
+    publish_twist: true
+    linear_scale: 1.0
+    angular_scale: 1.0
+    axis_x: 0
+    axis_y: 1
+    axis_yaw: 2
+    axis_throttle: 3
+    deadman_btn: 0
+```

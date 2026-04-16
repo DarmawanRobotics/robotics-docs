@@ -1,0 +1,67 @@
+---
+title: Axis & Button Map
+description: Physical layout and Linux evdev index mapping for the Logitech Extreme 3D Pro
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Axis & Button Map
+
+Hardware layout as reported by the Linux `joystick` kernel driver.
+
+## Axes
+
+| Index | Name | Physical Control | Normalised Range |
+|:-----:|------|-----------------|:----------------:|
+| `0` | X | Stick left / right (roll) | −1.0 … +1.0 |
+| `1` | Y | Stick forward / back (pitch) | −1.0 … +1.0 |
+| `2` | Rz | Stick twist (yaw) | −1.0 … +1.0 |
+| `3` | Throttle | Base slider | −1.0 … +1.0 |
+| `4` | Hat X | Hat switch horizontal | −1, 0, +1 |
+| `5` | Hat Y | Hat switch vertical | −1, 0, +1 |
+
+## Buttons
+
+| Index | Label | Location |
+|:-----:|-------|----------|
+| `0` | Trigger | Index finger — front of stick |
+| `1` | Thumb | Top of stick |
+| `2–5` | Buttons 3–6 | Top of stick |
+| `6–11` | Buttons 7–12 | Base cluster |
+
+## Twist Mapping
+
+When `publish_twist: true` and the deadman button is held, axes map to `geometry_msgs/Twist`:
+
+<Mermaid chart={`
+graph LR
+  AY["axis_y 1 Pitch"] -- "-1x" --> LX["linear.x fwd/back"]
+  AX["axis_x 0 Roll"] --> LY["linear.y strafe"]
+  AT["axis_throttle 3 Slider"] --> LZ["linear.z up/down"]
+  AZ["axis_yaw 2 Twist"] -- "-1x" --> AZZ["angular.z yaw"]
+
+  style AY fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style AX fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style AT fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style AZ fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style LX fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style LY fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style LZ fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style AZZ fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+`} />
+
+<Callout type="info">
+  Y and Yaw are **inverted** so that pushing forward → +x and twisting CCW → +z, matching ROS [REP-103](https://www.ros.org/reps/rep-0103.html) conventions.
+</Callout>
+
+## Debugging Raw Input
+
+Inspect the raw device before running the driver:
+
+```bash
+# jstest (sudo apt install joystick)
+jstest /dev/input/js0
+
+# evtest (sudo apt install evtest)
+sudo evtest /dev/input/event<N>
+```

@@ -1,0 +1,97 @@
+---
+title: Overview
+description: ROS 2 Foxy driver for the Logitech Extreme 3D Pro joystick
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# extreme3dpro_driver
+
+ROS 2 Foxy C++ node that reads the **Logitech Extreme 3D Pro** via Linux evdev and publishes `Joy`, `Twist`, and deadman messages.
+
+<Mermaid chart={`
+graph LR
+  JS["Logitech Extreme 3D Pro\n/dev/input/js0"]
+  NODE["extreme3dpro_node"]
+  JOY["/joy"]
+  CMD["/cmd_vel"]
+  DM["/deadman"]
+
+  JS -- "USB HID" --> NODE
+  NODE --> JOY
+  NODE --> CMD
+  NODE --> DM
+
+  style JS fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style NODE fill:#1e293b,stroke:#8b5cf6,color:#e2e8f0
+  style JOY fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style CMD fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style DM fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+`} />
+
+## Topics
+
+<TypeTable
+  type={{
+    '/joy': {
+      description: 'All 6 axes (normalised −1…+1) and 12 button states. Published at publish_rate Hz.',
+      type: 'sensor_msgs/msg/Joy',
+    },
+    '/cmd_vel': {
+      description: 'Velocity command from joystick. Only non-zero when deadman (trigger) is held.',
+      type: 'geometry_msgs/msg/Twist',
+    },
+    '/deadman': {
+      description: 'true when trigger is pressed.',
+      type: 'std_msgs/msg/Bool',
+    },
+  }}
+/>
+
+No services or actions. All topics use default QoS (`RELIABLE`, depth `10`).
+
+## Twist Mapping
+
+<Mermaid chart={`
+graph LR
+  AY["axis_y Pitch"] -- "-1x" --> LX["linear.x fwd/back"]
+  AX["axis_x Roll"] --> LY["linear.y strafe"]
+  AT["axis_throttle Slider"] --> LZ["linear.z up/down"]
+  AZ["axis_yaw Twist"] -- "-1x" --> AZZ["angular.z yaw"]
+
+  style AY fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style AX fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style AT fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style AZ fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style LX fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style LY fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style LZ fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style AZZ fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+`} />
+
+Inverted so push forward → +x, twist CCW → +z (ROS REP-103).
+
+## Axes
+
+| Index | Control | Range |
+|:-----:|---------|:-----:|
+| `0` | Stick left/right (roll) | −1.0 … +1.0 |
+| `1` | Stick forward/back (pitch) | −1.0 … +1.0 |
+| `2` | Stick twist (yaw) | −1.0 … +1.0 |
+| `3` | Throttle slider | −1.0 … +1.0 |
+| `4` | Hat X | −1, 0, +1 |
+| `5` | Hat Y | −1, 0, +1 |
+
+## Buttons
+
+| Index | Label | Location |
+|:-----:|-------|----------|
+| `0` | Trigger | Index finger |
+| `1` | Thumb | Top of stick |
+| `2–5` | Buttons 3–6 | Top of stick |
+| `6–11` | Buttons 7–12 | Base |
+
+<Callout type="info">
+  Debug raw input with `jstest /dev/input/js0` or `sudo evtest`.
+</Callout>

@@ -1,0 +1,159 @@
+---
+title: Architecture
+description: Threading model, data flow, and class internals for extreme3dpro_driver
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Architecture
+
+`Extreme3DProDriver` is a single `rclcpp::Node` that separates **hardware I/O** from **publishing** using two concurrent execution contexts.
+
+## Data Flow
+
+<Mermaid chart={`
+flowchart LR
+  subgraph HW ["Hardware"]
+    JS["/dev/input/js0"]
+  end
+
+  subgraph NODE ["extreme3dpro_node"]
+    RT["read_thread background"]
+    STATE["axes buttons fresh flag"]
+    TC["timer_callback main thread"]
+  end
+
+  subgraph PUB ["Published Topics"]
+    J["/joy"]
+    C["/cmd_vel"]
+    D["/deadman"]
+  end
+
+  JS -- "js_event" --> RT
+  RT -- "write" --> STATE
+  STATE -- "read" --> TC
+  TC --> J
+  TC --> C
+  TC --> D
+
+  style HW fill:#0f172a,stroke:#475569,color:#e2e8f0
+  style NODE fill:#0f172a,stroke:#8b5cf6,color:#e2e8f0
+  style PUB fill:#0f172a,stroke:#22c55e,color:#e2e8f0
+`} />
+
+## Threading Model
+
+<Mermaid chart={`
+sequenceDiagram
+  participant K as Kernel evdev
+  participant R as read_thread
+  participant S as Shared State
+  participant T as timer_callback
+  participant P as ROS 2 Topics
+
+  loop continuous
+    K->>R: js_event
+    R->>S: update axes/buttons
+    R->>S: fresh = true
+  end
+
+  loop every 1/publish_rate
+    T->>S: read axes, buttons, fresh
+    alt fresh or autorepeat
+      T->>P: publish /joy
+      T->>P: publish /cmd_vel
+      T->>P: publish /deadman
+      T->>S: fresh = false
+    end
+  end
+`} />
+
+### Read Thread
+
+Runs continuously in the background with the device opened in `O_NONBLOCK` mode:
+
+- `js_event` available → update `axes_[]` or `buttons_[]`, set `fresh_ = true`
+- No data (`EAGAIN`) → sleep 1 ms to avoid busy-waiting
+- Read error → set `running_ = false` and exit
+
+The `JS_EVENT_INIT` flag is stripped so initialisation events don't incorrectly mark data as fresh.
+
+### Timer Callback
+
+Fires at `publish_rate` Hz on the main thread:
+
+1. Skip if `!fresh_ && !autorepeat_`
+2. `publish_joy()` — copy axes/buttons with deadzone applied
+3. `publish_twist()` — non-zero only when deadman held
+4. Publish deadman state
+5. Clear `fresh_`
+
+<Callout type="info">
+  Shared state (`axes_`, `buttons_`, `fresh_`) is accessed from both threads. Safe in practice at ≤200 Hz publish rates, but a future improvement could wrap access in a `std::mutex`.
+</Callout>
+
+## Lifecycle
+
+<Mermaid chart={`
+stateDiagram-v2
+  [*] --> Init
+  Init --> Running : open_device OK
+  Init --> Shutdown : open_device FAIL
+  Running --> Shutdown : read error or destructor
+  Shutdown --> [*]
+
+  state Init {
+    [*] --> declare_parameters
+    declare_parameters --> load_parameters
+    load_parameters --> create_publishers
+    create_publishers --> open_device
+  }
+
+  state Running {
+    [*] --> read_thread
+    [*] --> timer
+  }
+
+  state Shutdown {
+    [*] --> stop_thread
+    stop_thread --> close_device
+  }
+`} />
+
+If `open_device()` fails, the node calls `rclcpp::shutdown()` immediately rather than spinning with no hardware.
+
+## Axis Normalisation
+
+Raw `int16_t` from the kernel → `float` in [−1.0, +1.0]:
+
+```cpp
+float centre = (max_val + min_val) / 2.0f;
+float range  = (max_val - min_val) / 2.0f;
+return std::clamp((raw - centre) / range, -1.0f, 1.0f);
+```
+
+## Class Overview
+
+<Mermaid chart={`
+classDiagram
+  class Extreme3DProDriver {
+    -fd_ : int
+    -axes_ : vector of float
+    -buttons_ : vector of int32
+    -fresh_ : bool
+    -running_ : atomic bool
+    -read_thread_ : thread
+    +Extreme3DProDriver(options)
+    +destructor()
+    -declare_parameters()
+    -load_parameters()
+    -open_device() bool
+    -close_device()
+    -read_loop()
+    -timer_callback()
+    -publish_joy()
+    -publish_twist()
+    -apply_deadzone(value) float
+    -normalise_axis(raw, min, max) float
+  }
+`} />

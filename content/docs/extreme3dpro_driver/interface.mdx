@@ -1,0 +1,122 @@
+---
+title: Interface
+description: Published topics, message types, QoS settings, and frame conventions
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Interface
+
+All communication is publish-only — this node exposes **no services or actions**.
+
+## Published Topics
+
+<TypeTable
+  type={{
+    '/joy': {
+      description: 'All axes (normalised −1…+1) and button states (0/1). Published at publish_rate Hz.',
+      type: 'sensor_msgs/msg/Joy',
+      default: '—',
+    },
+    '/cmd_vel': {
+      description: 'Velocity command derived from joystick axes. Only non-zero when the deadman button is held. Disabled when publish_twist: false.',
+      type: 'geometry_msgs/msg/Twist',
+      default: '—',
+    },
+    '/deadman': {
+      description: 'true while the deadman button (trigger) is pressed, false otherwise.',
+      type: 'std_msgs/msg/Bool',
+      default: '—',
+    },
+  }}
+/>
+
+All topics use the default ROS 2 QoS (`RELIABLE`, depth `10`).
+
+## Message Structure
+
+### `/joy` — `sensor_msgs/msg/Joy`
+
+<Mermaid chart={`
+graph TD
+  H["header"]
+  A["axes: float32 array"]
+  B["buttons: int32 array"]
+
+  H --> S["stamp: builtin_interfaces/Time"]
+  H --> F["frame_id: extreme3dpro"]
+  A --> A0["0 X roll"]
+  A --> A1["1 Y pitch"]
+  A --> A2["2 Rz yaw"]
+  A --> A3["3 Throttle"]
+  A --> A4["4 Hat X"]
+  A --> A5["5 Hat Y"]
+  B --> B0["0 Trigger"]
+  B --> B1["1 Thumb"]
+  B --> B2["2-11 Buttons 3-12"]
+
+  style H fill:#1e293b,stroke:#3b82f6,color:#e2e8f0
+  style A fill:#1e293b,stroke:#22c55e,color:#e2e8f0
+  style B fill:#1e293b,stroke:#f59e0b,color:#e2e8f0
+`} />
+
+### `/cmd_vel` — `geometry_msgs/msg/Twist`
+
+<TypeTable
+  type={{
+    'linear.x': {
+      description: 'Forward / backward — mapped from axis_y (inverted: push forward → +x)',
+      type: 'float64',
+      default: '0.0',
+    },
+    'linear.y': {
+      description: 'Strafe left / right — mapped from axis_x',
+      type: 'float64',
+      default: '0.0',
+    },
+    'linear.z': {
+      description: 'Up / down — mapped from axis_throttle',
+      type: 'float64',
+      default: '0.0',
+    },
+    'angular.z': {
+      description: 'Yaw rotation — mapped from axis_yaw (twist CCW → +z)',
+      type: 'float64',
+      default: '0.0',
+    },
+  }}
+/>
+
+Output is scaled by `linear_scale` (m/s) and `angular_scale` (rad/s). Fields not listed above (`angular.x`, `angular.y`) are always `0.0`.
+
+<Callout type="warning">
+  `/cmd_vel` outputs **all zeros** unless the deadman button is held. Set `deadman_btn: -1` to disable this safety — see [Parameters](/docs/extreme3dpro_driver/parameters).
+</Callout>
+
+### `/deadman` — `std_msgs/msg/Bool`
+
+A single `data` field: `true` when the deadman button is pressed, `false` otherwise. Useful for downstream nodes that need an independent safety gate.
+
+## Frame ID
+
+The `Joy` message `header.frame_id` is set to `"extreme3dpro"`. Override this by remapping or using a `static_transform_publisher` if your TF tree requires a different frame name.
+
+## Topic Remapping
+
+Default remappings in the launch file:
+
+```python
+remappings=[
+    ('joy',     '/joy'),
+    ('cmd_vel', '/cmd_vel'),
+    ('deadman', '/deadman'),
+]
+```
+
+Override at runtime:
+
+```bash
+ros2 run extreme3dpro_driver extreme3dpro_node \
+  --ros-args -r joy:=/my_robot/joy -r cmd_vel:=/my_robot/cmd_vel
+```
